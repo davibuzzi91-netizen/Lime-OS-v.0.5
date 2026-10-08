@@ -1,0 +1,1803 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Lime OS</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#111111">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Lime OS">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+
+<style>
+/* =====================================================================
+   LIME OS v0.5 — Central de Notificações + Central de Controle + Tester
+   ===================================================================== */
+
+:root {
+  --lime-yellow: #D9C94A;
+  --lime-green: #4C8C3C;
+  --bg-black: #000000;
+  --bg-dark: #121212;
+  --bg-elevated: #1C1C1C;
+  --text-white: #FFFFFF;
+  --text-gray: #8A8A8A;
+  --status-bar-height: 32px;
+  --gesture-zone-height: 80px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+
+html, body {
+  width:100%; height:100%; overflow:hidden;
+  background:var(--bg-black); color:var(--text-white);
+  font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* ---------- Telas ---------- */
+.screen {
+  position:fixed; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; pointer-events:none;
+  transition:opacity .35s ease;
+}
+.screen.active { opacity:1; pointer-events:auto; }
+
+/* ---------- STATUS BAR ---------- */
+.status-bar {
+  position:fixed; top:0; left:0; right:0; height:var(--status-bar-height);
+  z-index:100;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 16px;
+  background:var(--bg-black);
+  font-size:13px; font-weight:500;
+  pointer-events:auto;
+}
+
+.status-bar-left {
+  display:flex; align-items:center; gap:8px; flex:1;
+  cursor:pointer;
+}
+
+.status-bar-time { color:var(--text-white); }
+
+.status-bar-notifications {
+  display:flex; align-items:center; gap:4px;
+}
+
+.status-notif-icon {
+  width:18px; height:18px; border-radius:50%;
+  background:rgba(255,255,255,.15); display:flex;
+  align-items:center; justify-content:center;
+  font-size:10px;
+}
+
+.status-bar-right {
+  display:flex; align-items:center; gap:6px;
+  cursor:pointer;
+}
+
+.status-wifi { display:flex; align-items:flex-end; gap:2px; height:11px; }
+.status-wifi-bar { width:3px; background:var(--text-white); border-radius:1px; }
+.status-wifi-bar:nth-child(1) { height:4px; }
+.status-wifi-bar:nth-child(2) { height:6px; }
+.status-wifi-bar:nth-child(3) { height:8.5px; }
+.status-wifi-bar:nth-child(4) { height:11px; }
+.status-wifi.hidden { opacity:0; }
+
+.status-data { width:9px; height:9px; border:1.2px solid var(--text-white); }
+.status-data.hidden { opacity:0; }
+
+.status-location { width:8px; height:12px; border:1px solid var(--text-white); border-radius:50% 50% 50% 0; transform:rotate(-45deg); }
+.status-location.hidden { opacity:0; }
+
+.status-battery { display:flex; align-items:center; gap:4px; }
+.status-battery-body {
+  position:relative; width:24px; height:12px;
+  border:1.4px solid var(--text-white); border-radius:2.5px;
+  display:flex; align-items:center; padding:1.5px;
+}
+.status-battery-terminal { width:2px; height:5px; background:var(--text-white); border-radius:0 1px 1px 0; margin-left:1px; }
+.status-battery-level {
+  position:absolute; top:1.5px; left:1.5px; bottom:1.5px;
+  width:calc((24px - 3px - 2px) * var(--battery-pct, 1));
+  background:var(--text-white); border-radius:1px;
+}
+.status-battery-pct { font-size:11px; font-weight:600; }
+.status-battery-leaf { margin-left:2px; opacity:.7; }
+
+/* ---------- BOOT ---------- */
+#screen-boot { background:var(--bg-black); }
+.boot-content { display:flex; flex-direction:column; align-items:center; gap:14px; }
+.boot-title { font-size:32px; font-weight:600; letter-spacing:.5px;
+  opacity:0; transform:translateY(8px);
+  animation: boot-in .6s ease forwards;
+}
+.boot-subtitle { font-size:14px; color:var(--text-gray); margin-bottom:22px;
+  opacity:0; animation: boot-in .6s ease .25s forwards;
+}
+.android-robot { display:flex; flex-direction:column; align-items:center;
+  opacity:0; transform:scale(.7); animation: boot-robot .6s cubic-bezier(.34,1.56,.64,1) .5s forwards;
+}
+@keyframes boot-in { to { opacity:1; transform:translateY(0); } }
+@keyframes boot-robot { to { opacity:1; transform:scale(1); } }
+
+.robot-head { width:36px; height:20px; background:#78C257; border-radius:18px 18px 0 0; }
+.robot-body { display:flex; align-items:center; gap:4px; }
+.robot-arm { width:6px; height:26px; background:#78C257; border-radius:3px; }
+.robot-torso { width:36px; height:26px; background:#78C257; }
+.robot-legs { display:flex; gap:10px; margin-top:1px; }
+.robot-leg { width:7px; height:12px; background:#78C257; border-radius:0 0 3px 3px; }
+
+/* ---------- LOADING ---------- */
+#screen-loading { background:var(--bg-black); }
+.loading-content { position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+.lemon-wrap { position:relative; width:100%; display:flex; justify-content:center; }
+.lemon {
+  width:72px; height:90px; background:var(--lime-yellow);
+  border-radius:50% 50% 45% 45%; position:relative;
+  transform: translateX(0) rotate(0deg);
+}
+.lemon-leaf {
+  position:absolute; top:-14px; left:50%; transform:translateX(-50%);
+  width:16px; height:22px; background:var(--lime-green); border-radius:0 100% 0 100%;
+}
+.lemon.spin-move {
+  transition: transform 1.7s cubic-bezier(.4,0,.2,1);
+  transform: translateX(-70px) rotate(720deg);
+}
+.lime-os-logo {
+  position:absolute; left:50%; top:50%;
+  transform:translate(calc(-50% + 46px), -50%);
+  font-size:34px; font-weight:700; letter-spacing:.5px;
+  opacity:0; transition:opacity .6s ease;
+}
+.lime-os-logo.visible { opacity:1; }
+.logo-lime { color:var(--lime-yellow); }
+.logo-os { color:var(--lime-green); }
+
+/* =====================================================================
+   LOCK SCREEN
+   ===================================================================== */
+#screen-lock { background:var(--bg-black) no-repeat center center; background-size:cover; }
+
+.lock-content {
+  position:relative;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  height:100%; width:100%;
+}
+
+.lock-clock-group {
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+}
+
+.lock-time {
+  font-size:88px; font-weight:400; letter-spacing:-1px;
+  text-shadow:0 0 20px rgba(0,0,0,.6);
+}
+
+.lock-date {
+  font-size:16px; color:var(--text-gray);
+  text-shadow:0 0 10px rgba(0,0,0,.4);
+}
+
+.lock-swipe-hint {
+  position:absolute; bottom:40px; left:50%; transform:translateX(-50%);
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  opacity:.4;
+}
+
+.lock-swipe-chevron {
+  width:24px; height:12px;
+  border-bottom:2px solid var(--text-white);
+  border-right:2px solid var(--text-white);
+  transform:rotate(-45deg);
+  animation: chevron-bounce 1.5s infinite;
+}
+
+@keyframes chevron-bounce {
+  0%, 100% { transform:rotate(-45deg) translateY(0); }
+  50% { transform:rotate(-45deg) translateY(6px); }
+}
+
+#lock-gesture-zone {
+  position:absolute; bottom:0; left:0; right:0; height:var(--gesture-zone-height);
+  cursor:grab;
+}
+
+#lock-gesture-zone.dragging { cursor:grabbing; }
+
+#screen-lock.dragging .lock-content { transition:none; }
+
+/* =====================================================================
+   PIN SCREEN
+   ===================================================================== */
+#screen-pin { background:var(--bg-black); }
+.pin-content { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:30px; width:100%; }
+.pin-title { font-size:18px; color:var(--text-gray); }
+.pin-indicators { display:flex; gap:16px; }
+.pin-indicator-slot { width:12px; height:12px; border-radius:50%; border:2px solid rgba(255,255,255,.2); }
+.pin-indicator-slot .pin-indicator-ring { width:100%; height:100%; border-radius:50%; background:transparent; }
+
+.pin-pad {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:16px;
+  width:100%; max-width:280px; aspect-ratio:1;
+}
+
+.pin-key {
+  border:none; background:rgba(255,255,255,.08); color:var(--text-white);
+  border-radius:50%; font-size:24px; font-weight:500;
+  cursor:pointer; transition:.1s ease;
+}
+.pin-key:active { background:rgba(255,255,255,.16); transform:scale(.94); }
+.pin-key-empty { background:transparent; pointer-events:none; }
+.pin-key-del { font-size:20px; color:var(--text-gray); background:transparent; }
+.pin-key-del:active { background:rgba(255,255,255,.08); }
+
+/* =====================================================================
+   HOME SCREEN
+   ===================================================================== */
+#screen-home { background:var(--bg-black) no-repeat center center; background-size:cover; }
+
+.home-content {
+  width:100%; height:100%;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:50px;
+  padding-top:var(--status-bar-height);
+}
+
+.home-apps { display:grid; grid-template-columns:repeat(3,60px); gap:30px; }
+.app-icon {
+  width:60px; height:80px; border:none; background:transparent;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:6px; cursor:pointer;
+  opacity:0; transform:translateY(20px);
+  animation:app-enter .5s cubic-bezier(.34,1.56,.64,1) forwards;
+}
+.app-icon:nth-child(1) { animation-delay:.15s; }
+.app-icon:nth-child(2) { animation-delay:.25s; }
+.app-icon:nth-child(3) { animation-delay:.35s; }
+
+@keyframes app-enter { to { opacity:1; transform:translateY(0); } }
+
+.app-icon-glyph { font-size:36px; }
+.app-icon-label {
+  font-size:12px; color:var(--text-white); text-align:center;
+  text-shadow:0 0 8px rgba(0,0,0,.5);
+  word-break:break-word; max-width:70px;
+}
+
+/* =====================================================================
+   APP WINDOWS
+   ===================================================================== */
+.app-window {
+  position:fixed; inset:0; z-index:50;
+  display:flex; flex-direction:column;
+  background:var(--bg-black);
+  opacity:0; pointer-events:none;
+  transition:opacity .3s ease;
+}
+.app-window.open { opacity:1; pointer-events:auto; }
+
+.app-splash {
+  position:absolute; inset:0; z-index:100;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--bg-black);
+  opacity:0; animation:splash .8s ease forwards;
+}
+@keyframes splash { 0% { opacity:1; } 70% { opacity:1; } 100% { opacity:0; } }
+
+.app-splash-glyph { font-size:72px; }
+.app-window-body { flex:1; overflow-y:auto; padding:0; }
+.app-text { padding:20px; font-size:16px; color:var(--text-gray); }
+
+.app-gesture-zone {
+  position:absolute; bottom:0; left:0; right:0; height:var(--gesture-zone-height);
+  cursor:grab; z-index:10;
+}
+.app-gesture-zone.dragging { cursor:grabbing; }
+.app-gesture-handle {
+  position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+  width:36px; height:4px; background:rgba(255,255,255,.3); border-radius:2px;
+}
+
+/* =====================================================================
+   SETTINGS APP
+   ===================================================================== */
+#app-settings { background:var(--bg-black); }
+
+.settings-list {
+  padding:var(--status-bar-height) 0 0 0;
+  overflow-y:auto; height:100%;
+}
+
+.settings-title {
+  padding:20px 20px 20px 20px;
+  font-size:28px; font-weight:600;
+}
+
+.settings-row {
+  width:100%; padding:16px 20px;
+  border:none; background:transparent;
+  display:flex; align-items:center; gap:16px;
+  cursor:pointer; transition:.15s ease;
+}
+.settings-row:active { background:rgba(255,255,255,.05); }
+
+.settings-row-glyph { font-size:24px; }
+.settings-row-label { font-size:16px; color:var(--text-white); }
+
+.settings-sub {
+  position:fixed; inset:0; z-index:51;
+  display:flex; flex-direction:column;
+  background:var(--bg-black);
+  opacity:0; pointer-events:none;
+  transition:opacity .25s ease;
+}
+.settings-sub.open { opacity:1; pointer-events:auto; }
+
+.settings-sub-header {
+  display:flex; align-items:center; gap:12px;
+  padding:16px 20px; border-bottom:1px solid rgba(255,255,255,.1);
+  height:56px;
+}
+
+.settings-back-btn {
+  background:transparent; border:none; color:var(--text-white);
+  width:32px; height:32px; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:.15s ease;
+}
+.settings-back-btn:active { opacity:.6; }
+
+.settings-back-arrow::before {
+  content:'‹'; font-size:24px; font-weight:300;
+}
+
+.settings-sub-header-title {
+  font-size:18px; font-weight:600;
+}
+
+.settings-sub-body {
+  flex:1; overflow-y:auto;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:40px 20px;
+  gap:20px;
+}
+
+.settings-sub-glyph { font-size:48px; opacity:.7; }
+.app-text { color:var(--text-gray); font-size:16px; }
+
+/* =====================================================================
+   CENTRAL DE NOTIFICAÇÕES & CENTRAL DE CONTROLE — PAINÉIS
+   ===================================================================== */
+
+.panel-overlay {
+  position:fixed; inset:0; z-index:150;
+  background:rgba(0,0,0,.6); backdrop-filter:blur(10px);
+  opacity:0; pointer-events:none;
+  transition:opacity .3s ease;
+}
+.panel-overlay.open { opacity:1; pointer-events:auto; }
+
+/* Central de Notificações */
+#central-notificacoes {
+  position:fixed; top:0; left:0; right:0;
+  max-height:0;
+  background:var(--bg-dark);
+  border-bottom:1px solid rgba(255,255,255,.1);
+  overflow:hidden;
+  z-index:151;
+  transition:max-height .3s ease;
+}
+#central-notificacoes.open { max-height:70vh; }
+
+.notifications-header {
+  padding:16px 20px;
+  font-size:18px; font-weight:600;
+  border-bottom:1px solid rgba(255,255,255,.1);
+}
+
+.notifications-list {
+  overflow-y:auto;
+  max-height:calc(70vh - 56px);
+  padding:12px 0;
+}
+
+.notification-item {
+  padding:12px 20px;
+  border-bottom:1px solid rgba(255,255,255,.05);
+  cursor:pointer;
+  transition:.15s ease;
+}
+.notification-item:active { background:rgba(255,255,255,.05); }
+
+.notification-app { font-size:12px; color:var(--text-gray); }
+.notification-title { font-size:14px; font-weight:500; margin-top:4px; }
+.notification-time { font-size:11px; color:var(--text-gray); margin-top:4px; }
+
+.notifications-empty {
+  padding:40px 20px;
+  text-align:center;
+  color:var(--text-gray);
+  font-size:14px;
+}
+
+/* Central de Controle */
+#central-controle {
+  position:fixed; bottom:0; left:0; right:0;
+  max-height:0;
+  background:var(--bg-dark);
+  border-top:1px solid rgba(255,255,255,.1);
+  overflow:hidden;
+  z-index:151;
+  transition:max-height .3s ease;
+  display:flex; flex-direction:column;
+}
+#central-controle.open { max-height:85vh; }
+
+.control-header {
+  padding:16px 20px;
+  font-size:18px; font-weight:600;
+  border-bottom:1px solid rgba(255,255,255,.1);
+}
+
+.control-grid {
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:12px; padding:16px;
+  overflow-y:auto;
+  max-height:calc(85vh - 56px - 200px);
+}
+
+.control-item {
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+  gap:8px; padding:16px 12px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:12px;
+  cursor:pointer;
+  transition:.15s ease;
+}
+.control-item:active { background:rgba(255,255,255,.1); }
+.control-item.active { background:var(--lime-green); border-color:var(--lime-green); }
+
+.control-icon { font-size:24px; }
+.control-label { font-size:12px; color:var(--text-white); text-align:center; }
+
+/* Sliders */
+.control-slider-container {
+  grid-column:1 / -1;
+  display:flex; align-items:center; gap:12px;
+  padding:12px 16px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:12px;
+}
+
+.control-slider-icon { font-size:18px; min-width:24px; }
+
+input[type="range"] {
+  flex:1; height:4px;
+  -webkit-appearance:none;
+  appearance:none;
+  background:rgba(255,255,255,.2);
+  border-radius:2px;
+  outline:none;
+  cursor:pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance:none;
+  appearance:none;
+  width:18px; height:18px;
+  background:var(--lime-yellow);
+  border-radius:50%;
+  cursor:pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  width:18px; height:18px;
+  background:var(--lime-yellow);
+  border-radius:50%;
+  border:none;
+  cursor:pointer;
+}
+
+/* =====================================================================
+   TESTER APP
+   ===================================================================== */
+#app-tester { background:var(--bg-black); }
+
+.tester-list {
+  padding:var(--status-bar-height) 0;
+  overflow-y:auto;
+  height:100%;
+}
+
+.tester-section {
+  padding:16px 20px;
+}
+
+.tester-section-title {
+  font-size:14px; color:var(--text-gray);
+  text-transform:uppercase; letter-spacing:1px;
+  margin-bottom:12px;
+}
+
+.tester-button {
+  width:100%;
+  padding:12px 16px;
+  margin-bottom:8px;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.1);
+  color:var(--text-white);
+  border-radius:8px;
+  font-size:14px;
+  cursor:pointer;
+  transition:.15s ease;
+}
+.tester-button:active { background:rgba(255,255,255,.15); }
+
+.tester-result {
+  padding:16px;
+  background:rgba(217, 201, 74, .1);
+  border:1px solid var(--lime-yellow);
+  border-radius:8px;
+  margin-top:12px;
+  font-size:13px;
+  color:var(--lime-yellow);
+}
+
+@keyframes shake {
+  0%, 100% { transform:translateX(0); }
+  25% { transform:translateX(-5px); }
+  75% { transform:translateX(5px); }
+}
+
+@keyframes sheet-up {
+  from { transform:translateY(100%); }
+  to { transform:translateY(0); }
+}
+
+</style>
+</head>
+<body>
+
+<!-- =====================================================================
+     TELAS PRINCIPAIS
+     ===================================================================== -->
+
+<section id="screen-boot" class="screen active">
+  <div class="boot-content">
+    <div class="boot-title">Davi OS</div>
+    <div class="boot-subtitle">Powered by Android</div>
+    <div class="android-robot">
+      <div class="robot-head"></div>
+      <div class="robot-body">
+        <div class="robot-arm"></div>
+        <div class="robot-torso"></div>
+        <div class="robot-arm"></div>
+      </div>
+      <div class="robot-legs">
+        <div class="robot-leg"></div>
+        <div class="robot-leg"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="screen-loading" class="screen">
+  <div class="loading-content">
+    <div class="lemon-wrap">
+      <div class="lemon"><div class="lemon-leaf"></div></div>
+      <div class="lime-os-logo">
+        <span class="logo-lime">Lime</span><span class="logo-os">OS</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="screen-lock" class="screen">
+  <div id="lock-content" class="lock-content">
+    <div class="lock-clock-group">
+      <div id="lock-time" class="lock-time">--:--</div>
+      <div id="lock-date" class="lock-date">--</div>
+    </div>
+    <div class="lock-swipe-hint" aria-hidden="true">
+      <div class="lock-swipe-chevron"></div>
+    </div>
+  </div>
+  <div id="lock-gesture-zone" class="lock-gesture-zone"></div>
+</section>
+
+<section id="screen-pin" class="screen">
+  <div class="pin-content">
+    <div class="pin-title">Digite o PIN</div>
+    <div id="pin-indicators" class="pin-indicators">
+      <div class="pin-indicator-slot"><div class="pin-indicator-ring"></div></div>
+      <div class="pin-indicator-slot"><div class="pin-indicator-ring"></div></div>
+      <div class="pin-indicator-slot"><div class="pin-indicator-ring"></div></div>
+      <div class="pin-indicator-slot"><div class="pin-indicator-ring"></div></div>
+    </div>
+    <div id="pin-pad" class="pin-pad">
+      <button class="pin-key" data-key="1">1</button>
+      <button class="pin-key" data-key="2">2</button>
+      <button class="pin-key" data-key="3">3</button>
+      <button class="pin-key" data-key="4">4</button>
+      <button class="pin-key" data-key="5">5</button>
+      <button class="pin-key" data-key="6">6</button>
+      <button class="pin-key" data-key="7">7</button>
+      <button class="pin-key" data-key="8">8</button>
+      <button class="pin-key" data-key="9">9</button>
+      <span class="pin-key pin-key-empty"></span>
+      <button class="pin-key" data-key="0">0</button>
+      <button class="pin-key pin-key-del" data-key="del">⌫</button>
+    </div>
+  </div>
+</section>
+
+<section id="screen-home" class="screen">
+  <div class="home-content">
+    <div class="home-apps">
+      <button class="app-icon" data-app="settings" data-glyph="⚙️">
+        <span class="app-icon-glyph">⚙️</span>
+        <span class="app-icon-label">Configurações</span>
+      </button>
+      <button class="app-icon" data-app="tester" data-glyph="🧪">
+        <span class="app-icon-glyph">🧪</span>
+        <span class="app-icon-label">Tester</span>
+      </button>
+      <button class="app-icon" data-app="about" data-glyph="ℹ️">
+        <span class="app-icon-glyph">ℹ️</span>
+        <span class="app-icon-label">Sobre</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     STATUS BAR
+     ===================================================================== -->
+
+<div class="status-bar" id="status-bar">
+  <div class="status-bar-left" id="status-bar-left">
+    <span id="status-time" class="status-bar-time">--:--</span>
+    <div class="status-bar-notifications" id="status-notifications"></div>
+  </div>
+  <div class="status-bar-right" id="status-bar-right">
+    <div id="status-wifi-container" class="status-wifi">
+      <div class="status-wifi-bar"></div>
+      <div class="status-wifi-bar"></div>
+      <div class="status-wifi-bar"></div>
+      <div class="status-wifi-bar"></div>
+    </div>
+    <div id="status-data-container" class="status-data"></div>
+    <div id="status-location-container" class="status-location hidden"></div>
+    <div class="status-battery">
+      <div class="status-battery-body">
+        <div class="status-battery-level" style="--battery-pct:1;"></div>
+      </div>
+      <div class="status-battery-terminal"></div>
+      <span class="status-battery-pct">100%</span>
+      <span id="status-battery-leaf" class="status-battery-leaf hidden">🍃</span>
+    </div>
+  </div>
+</div>
+
+<!-- =====================================================================
+     PAINÉIS (Notificações & Controle)
+     ===================================================================== -->
+
+<div id="panel-overlay" class="panel-overlay"></div>
+
+<div id="central-notificacoes">
+  <div class="notifications-header">Notificações</div>
+  <div class="notifications-list" id="notifications-list">
+    <div class="notifications-empty">Nenhuma notificação</div>
+  </div>
+</div>
+
+<div id="central-controle">
+  <div class="control-header">Central de Controle</div>
+  <div class="control-grid" id="control-grid">
+    <!-- controles inseridos via JS -->
+  </div>
+</div>
+
+<!-- =====================================================================
+     APPS
+     ===================================================================== -->
+
+<!-- Configurações -->
+<section id="app-settings" class="app-window">
+  <div class="app-splash"><span class="app-splash-glyph">⚙️</span></div>
+  <div class="app-window-body">
+    <div class="settings-list">
+      <div class="settings-title">Configurações</div>
+      <button class="settings-row" data-sub="personalization">
+        <span class="settings-row-glyph">🎨</span>
+        <span class="settings-row-label">Personalização</span>
+      </button>
+      <button class="settings-row" data-sub="basic" data-glyph="☀️" data-label="Tela e brilho">
+        <span class="settings-row-glyph">☀️</span>
+        <span class="settings-row-label">Tela e brilho</span>
+      </button>
+      <button class="settings-row" data-sub="basic" data-glyph="🌓" data-label="Modos">
+        <span class="settings-row-glyph">🌓</span>
+        <span class="settings-row-label">Modos</span>
+      </button>
+      <button class="settings-row" data-sub="basic" data-glyph="📱" data-label="Apps">
+        <span class="settings-row-glyph">📱</span>
+        <span class="settings-row-label">Apps</span>
+      </button>
+      <button class="settings-row" data-sub="basic" data-glyph="♿" data-label="Acessibilidade">
+        <span class="settings-row-glyph">♿</span>
+        <span class="settings-row-label">Acessibilidade</span>
+      </button>
+      <button class="settings-row" data-sub="basic" data-glyph="💾" data-label="Armazenamento">
+        <span class="settings-row-glyph">💾</span>
+        <span class="settings-row-label">Armazenamento</span>
+      </button>
+      <button class="settings-row" data-sub="basic" data-glyph="🔧" data-label="Configurações adicionais">
+        <span class="settings-row-glyph">🔧</span>
+        <span class="settings-row-label">Configurações adicionais</span>
+      </button>
+    </div>
+
+    <div id="settings-sub-basic" class="settings-sub">
+      <div class="settings-sub-header">
+        <button class="settings-back-btn" data-back-to="settings-root"><span class="settings-back-arrow"></span></button>
+        <span id="settings-sub-basic-title" class="settings-sub-header-title"></span>
+      </div>
+      <div class="settings-sub-body">
+        <span id="settings-sub-basic-glyph" class="settings-sub-glyph"></span>
+        <span class="app-text">Em breve!</span>
+      </div>
+    </div>
+
+    <div id="settings-sub-personalization" class="settings-sub">
+      <div class="settings-sub-header">
+        <button class="settings-back-btn" data-back-to="settings-root"><span class="settings-back-arrow"></span></button>
+        <span class="settings-sub-header-title">Personalização</span>
+      </div>
+      <div class="settings-sub-body" style="justify-content:flex-start;">
+        <div class="personalization-list">
+          <button class="settings-row" data-sub="wallpaper">
+            <span class="settings-row-glyph">🖼️</span>
+            <span class="settings-row-label">Wallpaper</span>
+          </button>
+          <button class="settings-row" data-sub="basic" data-glyph="🔤" data-label="Fonte">
+            <span class="settings-row-glyph">🔤</span>
+            <span class="settings-row-label">Fonte</span>
+          </button>
+          <button class="settings-row" data-sub="basic" data-glyph="🔒" data-label="Estilo de bloqueio">
+            <span class="settings-row-glyph">🔒</span>
+            <span class="settings-row-label">Estilo de bloqueio</span>
+          </button>
+          <button class="settings-row" data-sub="basic" data-glyph="🕐" data-label="Relógio">
+            <span class="settings-row-glyph">🕐</span>
+            <span class="settings-row-label">Relógio</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="settings-sub-wallpaper" class="settings-sub">
+      <div class="settings-sub-header">
+        <button class="settings-back-btn" data-back-to="personalization"><span class="settings-back-arrow"></span></button>
+        <span class="settings-sub-header-title">Wallpaper</span>
+      </div>
+      <div class="settings-sub-body wallpaper-body">
+        <div id="wallpaper-preview" class="wallpaper-preview">
+          <span id="wallpaper-preview-empty" class="wallpaper-preview-empty">Nenhum wallpaper selecionado</span>
+        </div>
+        <input id="wallpaper-url-input" type="text" class="wallpaper-url-input" placeholder="Cole uma URL de imagem aqui..." style="width:100%;padding:12px;margin:12px 0;border:1px solid rgba(255,255,255,.2);border-radius:8px;background:rgba(255,255,255,.05);color:#fff;font-size:14px;">
+        <button id="wallpaper-apply-url-btn" class="wallpaper-choose-btn">Aplicar imagem da URL</button>
+        <label for="wallpaper-file-input" class="wallpaper-choose-btn" style="opacity:.6;font-size:12px;margin-top:8px;">ou escolher arquivo</label>
+        <input id="wallpaper-file-input" type="file" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;">
+      </div>
+    </div>
+  </div>
+  <div class="app-gesture-zone"><div class="app-gesture-handle"></div></div>
+</section>
+
+<!-- Tester -->
+<section id="app-tester" class="app-window">
+  <div class="app-splash"><span class="app-splash-glyph">🧪</span></div>
+  <div class="app-window-body">
+    <div class="tester-list" id="tester-list">
+      <!-- comandos inseridos via JS -->
+    </div>
+  </div>
+  <div class="app-gesture-zone"><div class="app-gesture-handle"></div></div>
+</section>
+
+<!-- Sobre -->
+<section id="app-about" class="app-window">
+  <div class="app-splash"><span class="app-splash-glyph">ℹ️</span></div>
+  <div class="app-window-body" style="padding-top:var(--status-bar-height);">
+    <div style="padding:20px; text-align:center;">
+      <div style="font-size:48px; margin-bottom:16px;">🍋</div>
+      <div style="font-size:18px; font-weight:600; margin-bottom:8px;">Lime OS</div>
+      <div style="font-size:14px; color:var(--text-gray); margin-bottom:16px;">Versão 0.5</div>
+      <div style="font-size:12px; color:var(--text-gray); line-height:1.6;">
+        <div>Sistema operacional experimental</div>
+        <div>Android 16</div>
+        <div>Lime Phone 01</div>
+      </div>
+    </div>
+  </div>
+  <div class="app-gesture-zone"><div class="app-gesture-handle"></div></div>
+</section>
+
+<!-- Overlay para wallpaper target -->
+<div id="wallpaper-target-overlay" class="wallpaper-target-overlay" style="position:fixed;inset:0;z-index:160;background:rgba(0,0,0,.7);display:none;align-items:flex-end;">
+  <div class="wallpaper-target-sheet" style="width:100%;background:var(--bg-elevated);border-radius:16px 16px 0 0;padding:20px;animation:sheet-up .3s ease;">
+    <div class="wallpaper-target-title" style="font-size:18px;font-weight:600;margin-bottom:16px;">Aplicar wallpaper em</div>
+    <button class="wallpaper-target-option" data-target="home" style="width:100%;padding:16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);color:var(--text-white);border-radius:8px;margin-bottom:8px;cursor:pointer;">Tela inicial</button>
+    <button class="wallpaper-target-option" data-target="lock" style="width:100%;padding:16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);color:var(--text-white);border-radius:8px;margin-bottom:8px;cursor:pointer;">Tela de bloqueio</button>
+    <button class="wallpaper-target-option" data-target="both" style="width:100%;padding:16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);color:var(--text-white);border-radius:8px;cursor:pointer;">Tela inicial e tela de bloqueio</button>
+  </div>
+</div>
+
+<div id="lime-toast" style="position:fixed;bottom:32px;left:50%;transform:translateX(-50%);z-index:200;background:var(--bg-elevated);color:var(--text-white);padding:12px 20px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .3s ease;"></div>
+
+<script>
+/* =====================================================================
+   LIME OS v0.5 — Lógica principal
+   ===================================================================== */
+
+const WALLPAPER_STORAGE_KEY_HOME = 'limeos_wallpaper_home';
+const WALLPAPER_STORAGE_KEY_LOCK = 'limeos_wallpaper_lock';
+
+// Estado da Central de Controle
+const controlState = {
+  wifi: false,
+  data: false,
+  brightness: 50,
+  volume: 70,
+  mute: false,
+  dnd: false,
+  bluetooth: false,
+  airplane: false,
+  location: false,
+  battery_saver: false,
+  vibrate: true,
+  screen_rotation: true,
+  quick_share: false,
+  wallet: false
+};
+
+// Notificações
+let notifications = [];
+
+// Constantes de tempo
+const WEEKDAYS_PT = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+const MONTHS_PT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+/* =====================================================================
+   FUNÇÕES UTILITÁRIAS
+   ===================================================================== */
+
+function showScreen(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+}
+
+function hideStatusBar() {
+  const bar = document.querySelector('.status-bar');
+  if (window.innerHeight > 600) bar.style.display = 'none';
+}
+
+function updateStatusBarTime() {
+  const now = new Date();
+  const time = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('status-time').textContent = time;
+}
+
+function updateLockTime() {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2,'0');
+  const mins = String(now.getMinutes()).padStart(2,'0');
+  const dayIdx = now.getDay();
+  const dateNum = now.getDate();
+  const monthIdx = now.getMonth();
+
+  document.getElementById('lock-time').textContent = `${hours}:${mins}`;
+  document.getElementById('lock-date').textContent = `${WEEKDAYS_PT[dayIdx]}, ${dateNum} de ${MONTHS_PT[monthIdx]}`;
+}
+
+function applyStoredWallpapers() {
+  try {
+    const homeUrl = localStorage.getItem(WALLPAPER_STORAGE_KEY_HOME);
+    const lockUrl = localStorage.getItem(WALLPAPER_STORAGE_KEY_LOCK);
+    if (homeUrl) document.getElementById('screen-home').style.backgroundImage = `url("${homeUrl}")`;
+    if (lockUrl) document.getElementById('screen-lock').style.backgroundImage = `url("${lockUrl}")`;
+  } catch (err) {}
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('lime-toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  toast.style.opacity = '1';
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.classList.remove('show');
+  }, 1800);
+}
+
+/* =====================================================================
+   LOCK SCREEN + PIN
+   ===================================================================== */
+
+let lockPressStart = null;
+let lockStartY = null;
+let lockAnimFrame = null;
+let pinBuffer = '';
+let pinDragShapes = [];
+
+function startLock() {
+  updateLockTime();
+  setInterval(updateLockTime, 1000);
+
+  const zone = document.getElementById('lock-gesture-zone');
+
+  zone.addEventListener('touchstart', lockGestureStart, {passive:true});
+  zone.addEventListener('touchmove', lockGestureMove, {passive:true});
+  zone.addEventListener('touchend', lockGestureEnd);
+  zone.addEventListener('mousedown', lockGestureStart);
+  zone.addEventListener('mousemove', lockGestureMove);
+  zone.addEventListener('mouseup', lockGestureEnd);
+}
+
+function lockGestureStart(e) {
+  const isTouch = e.touches;
+  const y = isTouch ? e.touches[0].clientY : e.clientY;
+
+  if (y < window.innerHeight - 80) return;
+
+  lockPressStart = e.timeStamp;
+  lockStartY = y;
+  zone.classList.add('dragging');
+}
+
+function lockGestureMove(e) {
+  if (!lockPressStart) return;
+  const isTouch = e.touches;
+  if (!isTouch && e.buttons !== 1) return;
+
+  const y = isTouch ? e.touches[0].clientY : e.clientY;
+  const dist = lockStartY - y;
+
+  if (dist > 0) {
+    const progress = Math.min(dist / 300, 1);
+    const scaled = 88 * (1 + progress * 0.5);
+    document.getElementById('lock-time').style.fontSize = scaled + 'px';
+  }
+}
+
+function lockGestureEnd(e) {
+  if (!lockPressStart) return;
+  const isTouch = e.changedTouches;
+  const y = isTouch ? e.changedTouches[0].clientY : e.clientY;
+  const dist = lockStartY - y;
+
+  lockPressStart = null;
+  lockStartY = null;
+  zone.classList.remove('dragging');
+  document.getElementById('lock-time').style.fontSize = '';
+
+  if (dist > 100) showScreen('screen-pin');
+}
+
+function bindPinPad() {
+  document.querySelectorAll('.pin-key').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const key = e.target.closest('.pin-key').dataset.key;
+      if (!key) return;
+
+      if (key === 'del') {
+        pinBuffer = pinBuffer.slice(0, -1);
+        updatePinIndicators();
+      } else {
+        if (pinBuffer.length < 4) {
+          pinBuffer += key;
+          animatePinBubble(key);
+          updatePinIndicators();
+          if (pinBuffer.length === 4) {
+            setTimeout(checkPin, 260);
+          }
+        }
+      }
+    });
+  });
+}
+
+function updatePinIndicators() {
+  document.querySelectorAll('.pin-indicator-slot').forEach((slot, i) => {
+    const ring = slot.querySelector('.pin-indicator-ring');
+    if (i < pinBuffer.length) {
+      ring.style.background = 'var(--lime-yellow)';
+      ring.style.animation = 'none';
+    } else {
+      ring.style.background = 'transparent';
+      ring.style.animation = '';
+    }
+  });
+}
+
+function animatePinBubble(key) {
+  const key_btn = document.querySelector(`.pin-key[data-key="${key}"]`);
+  if (!key_btn) return;
+
+  const slot = document.querySelector('.pin-indicator-slot:nth-child(' + (pinBuffer.length) + ')');
+  if (!slot) return;
+
+  const keyRect = key_btn.getBoundingClientRect();
+  const slotRect = slot.getBoundingClientRect();
+
+  const shape = document.createElement('div');
+  shape.style.cssText = `
+    position:fixed; pointer-events:none; z-index:40;
+    left:${keyRect.left + keyRect.width/2}px;
+    top:${keyRect.top + keyRect.height/2}px;
+    width:12px; height:12px;
+    background:var(--lime-yellow);
+    border-radius:40% 60% 55% 45% / 55% 45% 60% 40%;
+  `;
+  document.body.appendChild(shape);
+
+  shape.animate([
+    { transform:'translate(-50%,-50%) scale(1)', opacity:1 },
+    { transform:`translate(calc(-50% + ${(slotRect.left + slotRect.width/2) - (keyRect.left + keyRect.width/2)}px), calc(-50% + ${(slotRect.top + slotRect.height/2) - (keyRect.top + keyRect.height/2)}px)) scale(.8)`, opacity:.7 }
+  ], {
+    duration:260,
+    easing:'cubic-bezier(.34,1.56,.64,1)',
+    fill:'forwards'
+  });
+
+  setTimeout(() => {
+    shape.remove();
+    const ring = document.querySelector(`.pin-indicator-slot:nth-child(${pinBuffer.length}) .pin-indicator-ring`);
+    if (ring) ring.style.animation = 'none';
+  }, 260);
+}
+
+function checkPin() {
+  const correct = '0000';
+  if (pinBuffer === correct) {
+    goToHome();
+  } else {
+    document.querySelectorAll('.pin-indicator-slot').forEach(slot => {
+      slot.style.animation = 'shake .4s ease';
+      slot.style.backgroundColor = 'rgba(255, 0, 0, .2)';
+    });
+    setTimeout(() => {
+      pinBuffer = '';
+      updatePinIndicators();
+      document.querySelectorAll('.pin-indicator-slot').forEach(slot => {
+        slot.style.animation = '';
+        slot.style.backgroundColor = '';
+      });
+    }, 400);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  hideStatusBar();
+  applyStoredWallpapers();
+  showScreen('screen-boot');
+
+  setTimeout(() => {
+    document.querySelector('.lemon').classList.add('spin-move');
+  }, 1500);
+
+  setTimeout(() => {
+    document.querySelector('.lime-os-logo').classList.add('visible');
+  }, 2100);
+
+  setTimeout(() => {
+    goToLoading();
+  }, 6000);
+
+  setTimeout(() => {
+    goToLock();
+  }, 10000);
+});
+
+/* =====================================================================
+   HOME SCREEN
+   ===================================================================== */
+
+function startHome() {
+  updateStatusBarTime();
+  setInterval(updateStatusBarTime, 1000);
+
+  document.querySelectorAll('.app-icon').forEach(icon => {
+    icon.addEventListener('click', () => {
+      const appId = icon.dataset.app;
+      const glyph = icon.dataset.glyph;
+      openApp(appId, glyph);
+    });
+  });
+}
+
+function openApp(appId, glyph) {
+  const app = document.getElementById('app-' + appId);
+  if (!app) return;
+
+  app.classList.add('open');
+
+  const statusBar = document.querySelector('.status-bar');
+  statusBar.style.display = 'flex';
+
+  bindAppGestureClose(app);
+}
+
+function bindAppGestureClose(app) {
+  const zone = app.querySelector('.app-gesture-zone');
+  let startY, startTime;
+
+  zone.addEventListener('touchstart', e => {
+    const touch = e.touches[0];
+    if (touch.clientY < window.innerHeight - 80) return;
+    startY = touch.clientY;
+    startTime = e.timeStamp;
+    zone.classList.add('dragging');
+  }, {passive:true});
+
+  zone.addEventListener('touchmove', e => {
+    if (!startY) return;
+    const touch = e.touches[0];
+    const dist = startY - touch.clientY;
+    if (dist > 20) e.preventDefault();
+  }, {passive:false});
+
+  zone.addEventListener('touchend', e => {
+    if (!startY) return;
+    const touch = e.changedTouches[0];
+    const dist = startY - touch.clientY;
+    startY = null;
+    zone.classList.remove('dragging');
+
+    if (dist > 100) {
+      app.classList.remove('open');
+      document.querySelector('.status-bar').style.display = 'none';
+    }
+  });
+
+  zone.addEventListener('mousedown', e => {
+    if (e.clientY < window.innerHeight - 80) return;
+    startY = e.clientY;
+    startTime = e.timeStamp;
+    zone.classList.add('dragging');
+  });
+
+  zone.addEventListener('mousemove', e => {
+    if (!startY || e.buttons !== 1) return;
+    const dist = startY - e.clientY;
+    if (dist > 20) e.preventDefault();
+  });
+
+  zone.addEventListener('mouseup', e => {
+    if (!startY) return;
+    const dist = startY - e.clientY;
+    startY = null;
+    zone.classList.remove('dragging');
+
+    if (dist > 100) {
+      app.classList.remove('open');
+      document.querySelector('.status-bar').style.display = 'none';
+    }
+  });
+}
+
+/* =====================================================================
+   STATUS BAR — PAINÉIS
+   ===================================================================== */
+
+function bindStatusBarGestures() {
+  const statusBar = document.querySelector('.status-bar');
+  const left = document.getElementById('status-bar-left');
+  const right = document.getElementById('status-bar-right');
+  const overlay = document.getElementById('panel-overlay');
+  const notifPanel = document.getElementById('central-notificacoes');
+  const controlPanel = document.getElementById('central-controle');
+
+  let startY, startTime, activePanel = null;
+
+  left.addEventListener('touchstart', e => {
+    startY = e.touches[0].clientY;
+    startTime = e.timeStamp;
+    activePanel = 'notifications';
+  }, {passive:true});
+
+  left.addEventListener('touchmove', e => {
+    if (!activePanel || activePanel !== 'notifications') return;
+    const y = e.touches[0].clientY;
+    const dist = startY - y;
+    if (dist < 0) return;
+
+    const progress = Math.min(dist / 400, 1);
+    notifPanel.style.maxHeight = progress * 70 * window.innerHeight / 100 + 'px';
+    overlay.style.opacity = progress * .6;
+  }, {passive:true});
+
+  left.addEventListener('touchend', e => {
+    if (!activePanel || activePanel !== 'notifications') { activePanel = null; return; }
+    const y = e.changedTouches[0].clientY;
+    const dist = startY - y;
+    activePanel = null;
+
+    if (dist > 100) {
+      notifPanel.classList.add('open');
+      overlay.classList.add('open');
+    } else {
+      notifPanel.classList.remove('open');
+      overlay.classList.remove('open');
+      notifPanel.style.maxHeight = '';
+      overlay.style.opacity = '';
+    }
+  });
+
+  right.addEventListener('touchstart', e => {
+    startY = e.touches[0].clientY;
+    startTime = e.timeStamp;
+    activePanel = 'control';
+  }, {passive:true});
+
+  right.addEventListener('touchmove', e => {
+    if (!activePanel || activePanel !== 'control') return;
+    const y = e.touches[0].clientY;
+    const dist = y - startY;
+    if (dist < 0) return;
+
+    const progress = Math.min(dist / 400, 1);
+    controlPanel.style.maxHeight = progress * 85 * window.innerHeight / 100 + 'px';
+    overlay.style.opacity = progress * .6;
+  }, {passive:true});
+
+  right.addEventListener('touchend', e => {
+    if (!activePanel || activePanel !== 'control') { activePanel = null; return; }
+    const y = e.changedTouches[0].clientY;
+    const dist = y - startY;
+    activePanel = null;
+
+    if (dist > 100) {
+      controlPanel.classList.add('open');
+      overlay.classList.add('open');
+    } else {
+      controlPanel.classList.remove('open');
+      overlay.classList.remove('open');
+      controlPanel.style.maxHeight = '';
+      overlay.style.opacity = '';
+    }
+  });
+
+  overlay.addEventListener('click', () => {
+    notifPanel.classList.remove('open');
+    controlPanel.classList.remove('open');
+    overlay.classList.remove('open');
+    notifPanel.style.maxHeight = '';
+    controlPanel.style.maxHeight = '';
+    overlay.style.opacity = '';
+  });
+}
+
+/* =====================================================================
+   CENTRAL DE CONTROLE — CONSTRUIR GRID
+   ===================================================================== */
+
+function buildControlGrid() {
+  const grid = document.getElementById('control-grid');
+  grid.innerHTML = '';
+
+  // Wi-Fi
+  const wifiItem = document.createElement('button');
+  wifiItem.className = 'control-item' + (controlState.wifi ? ' active' : '');
+  wifiItem.innerHTML = '<div class="control-icon">📶</div><div class="control-label">Wi-Fi</div>';
+  wifiItem.addEventListener('click', () => {
+    controlState.wifi = !controlState.wifi;
+    updateStatusWifi();
+    wifiItem.classList.toggle('active');
+  });
+  grid.appendChild(wifiItem);
+
+  // Dados móveis
+  const dataItem = document.createElement('button');
+  dataItem.className = 'control-item' + (controlState.data ? ' active' : '');
+  dataItem.innerHTML = '<div class="control-icon">📡</div><div class="control-label">Dados móveis</div>';
+  dataItem.addEventListener('click', () => {
+    controlState.data = !controlState.data;
+    updateStatusData();
+    dataItem.classList.toggle('active');
+  });
+  grid.appendChild(dataItem);
+
+  // Modo avião
+  const airplaneItem = document.createElement('button');
+  airplaneItem.className = 'control-item' + (controlState.airplane ? ' active' : '');
+  airplaneItem.innerHTML = '<div class="control-icon">✈️</div><div class="control-label">Modo avião</div>';
+  airplaneItem.addEventListener('click', () => {
+    controlState.airplane = !controlState.airplane;
+    if (controlState.airplane) {
+      controlState.wifi = false;
+      controlState.data = false;
+      updateStatusWifi();
+      updateStatusData();
+    }
+    updateStatusWifi();
+    updateStatusData();
+    airplaneItem.classList.toggle('active');
+  });
+  grid.appendChild(airplaneItem);
+
+  // Localização
+  const locItem = document.createElement('button');
+  locItem.className = 'control-item' + (controlState.location ? ' active' : '');
+  locItem.innerHTML = '<div class="control-icon">📍</div><div class="control-label">Localização</div>';
+  locItem.addEventListener('click', () => {
+    controlState.location = !controlState.location;
+    updateStatusLocation();
+    locItem.classList.toggle('active');
+  });
+  grid.appendChild(locItem);
+
+  // Economia de bateria
+  const batteryItem = document.createElement('button');
+  batteryItem.className = 'control-item' + (controlState.battery_saver ? ' active' : '');
+  batteryItem.innerHTML = '<div class="control-icon">🍃</div><div class="control-label">Economia bateria</div>';
+  batteryItem.addEventListener('click', () => {
+    controlState.battery_saver = !controlState.battery_saver;
+    updateStatusBatterySaver();
+    batteryItem.classList.toggle('active');
+  });
+  grid.appendChild(batteryItem);
+
+  // Brilho (slider)
+  const brightnessContainer = document.createElement('div');
+  brightnessContainer.className = 'control-slider-container';
+  brightnessContainer.innerHTML = '<div class="control-slider-icon">☀️</div><input type="range" min="10" max="100" value="' + controlState.brightness + '">';
+  brightnessContainer.querySelector('input').addEventListener('input', e => {
+    controlState.brightness = parseInt(e.target.value);
+  });
+  grid.appendChild(brightnessContainer);
+
+  // Volume (slider)
+  const volumeContainer = document.createElement('div');
+  volumeContainer.className = 'control-slider-container';
+  volumeContainer.innerHTML = '<div class="control-slider-icon">🔊</div><input type="range" min="0" max="100" value="' + controlState.volume + '">';
+  volumeContainer.querySelector('input').addEventListener('input', e => {
+    controlState.volume = parseInt(e.target.value);
+  });
+  grid.appendChild(volumeContainer);
+
+  // Mudo
+  const muteItem = document.createElement('button');
+  muteItem.className = 'control-item' + (controlState.mute ? ' active' : '');
+  muteItem.innerHTML = '<div class="control-icon">🔇</div><div class="control-label">Mudo</div>';
+  muteItem.addEventListener('click', () => {
+    controlState.mute = !controlState.mute;
+    muteItem.classList.toggle('active');
+  });
+  grid.appendChild(muteItem);
+
+  // Não perturbe
+  const dndItem = document.createElement('button');
+  dndItem.className = 'control-item' + (controlState.dnd ? ' active' : '');
+  dndItem.innerHTML = '<div class="control-icon">🔕</div><div class="control-label">Não perturbe</div>';
+  dndItem.addEventListener('click', () => {
+    controlState.dnd = !controlState.dnd;
+    dndItem.classList.toggle('active');
+  });
+  grid.appendChild(dndItem);
+
+  // Bluetooth
+  const btItem = document.createElement('button');
+  btItem.className = 'control-item' + (controlState.bluetooth ? ' active' : '');
+  btItem.innerHTML = '<div class="control-icon">🔵</div><div class="control-label">Bluetooth</div>';
+  btItem.addEventListener('click', () => {
+    controlState.bluetooth = !controlState.bluetooth;
+    btItem.classList.toggle('active');
+  });
+  grid.appendChild(btItem);
+
+  // Vibração
+  const vibItem = document.createElement('button');
+  vibItem.className = 'control-item' + (controlState.vibrate ? ' active' : '');
+  vibItem.innerHTML = '<div class="control-icon">📳</div><div class="control-label">Vibração</div>';
+  vibItem.addEventListener('click', () => {
+    controlState.vibrate = !controlState.vibrate;
+    vibItem.classList.toggle('active');
+  });
+  grid.appendChild(vibItem);
+
+  // Bloquear orientação
+  const rotationItem = document.createElement('button');
+  rotationItem.className = 'control-item' + (!controlState.screen_rotation ? ' active' : '');
+  rotationItem.innerHTML = '<div class="control-icon">🔒</div><div class="control-label">Bloquear orientação</div>';
+  rotationItem.addEventListener('click', () => {
+    controlState.screen_rotation = !controlState.screen_rotation;
+    rotationItem.classList.toggle('active');
+  });
+  grid.appendChild(rotationItem);
+
+  // Quick Share
+  const shareItem = document.createElement('button');
+  shareItem.className = 'control-item' + (controlState.quick_share ? ' active' : '');
+  shareItem.innerHTML = '<div class="control-icon">🚀</div><div class="control-label">Quick Share</div>';
+  shareItem.addEventListener('click', () => {
+    controlState.quick_share = !controlState.quick_share;
+    shareItem.classList.toggle('active');
+  });
+  grid.appendChild(shareItem);
+
+  // Carteira
+  const walletItem = document.createElement('button');
+  walletItem.className = 'control-item' + (controlState.wallet ? ' active' : '');
+  walletItem.innerHTML = '<div class="control-icon">💳</div><div class="control-label">Carteira</div>';
+  walletItem.addEventListener('click', () => {
+    controlState.wallet = !controlState.wallet;
+    walletItem.classList.toggle('active');
+  });
+  grid.appendChild(walletItem);
+
+  // Bloquear tela
+  const lockItem = document.createElement('button');
+  lockItem.className = 'control-item';
+  lockItem.innerHTML = '<div class="control-icon">🔒</div><div class="control-label">Bloquear tela</div>';
+  lockItem.addEventListener('click', () => {
+    goToLock();
+    document.getElementById('central-controle').classList.remove('open');
+    document.getElementById('panel-overlay').classList.remove('open');
+    document.querySelector('.status-bar').style.display = 'none';
+  });
+  grid.appendChild(lockItem);
+}
+
+function updateStatusWifi() {
+  const container = document.getElementById('status-wifi-container');
+  if (controlState.wifi || controlState.airplane) {
+    container.classList.remove('hidden');
+  } else {
+    container.classList.add('hidden');
+  }
+}
+
+function updateStatusData() {
+  const container = document.getElementById('status-data-container');
+  if (controlState.data || controlState.airplane) {
+    container.classList.remove('hidden');
+  } else {
+    container.classList.add('hidden');
+  }
+}
+
+function updateStatusLocation() {
+  const container = document.getElementById('status-location-container');
+  if (controlState.location) {
+    container.classList.remove('hidden');
+  } else {
+    container.classList.add('hidden');
+  }
+}
+
+function updateStatusBatterySaver() {
+  const leaf = document.getElementById('status-battery-leaf');
+  if (controlState.battery_saver) {
+    leaf.classList.remove('hidden');
+  } else {
+    leaf.classList.add('hidden');
+  }
+}
+
+/* =====================================================================
+   TESTER APP
+   ===================================================================== */
+
+function buildTesterUI() {
+  const list = document.getElementById('tester-list');
+  list.innerHTML = '';
+
+  // Notificações
+  const notifSection = document.createElement('div');
+  notifSection.className = 'tester-section';
+  notifSection.innerHTML = '<div class="tester-section-title">Notificações</div>';
+
+  const btn1 = document.createElement('button');
+  btn1.className = 'tester-button';
+  btn1.textContent = 'Gerar notificação';
+  btn1.addEventListener('click', () => {
+    addNotification('Configurações', 'Uma notificação de teste');
+  });
+  notifSection.appendChild(btn1);
+
+  const btn2 = document.createElement('button');
+  btn2.className = 'tester-button';
+  btn2.textContent = 'Gerar 3 notificações';
+  btn2.addEventListener('click', () => {
+    addNotification('App 1', 'Primeira mensagem');
+    addNotification('App 2', 'Segunda mensagem');
+    addNotification('App 3', 'Terceira mensagem');
+  });
+  notifSection.appendChild(btn2);
+
+  list.appendChild(notifSection);
+
+  // Sistema
+  const sysSection = document.createElement('div');
+  sysSection.className = 'tester-section';
+  sysSection.innerHTML = '<div class="tester-section-title">Sistema</div>';
+
+  const btn3 = document.createElement('button');
+  btn3.className = 'tester-button';
+  btn3.textContent = 'Bloquear telefone';
+  btn3.addEventListener('click', () => {
+    goToLock();
+    const app = document.getElementById('app-tester');
+    app.classList.remove('open');
+    document.querySelector('.status-bar').style.display = 'none';
+  });
+  sysSection.appendChild(btn3);
+
+  const btn4 = document.createElement('button');
+  btn4.className = 'tester-button';
+  btn4.textContent = 'Reiniciar LimeOS';
+  btn4.addEventListener('click', () => {
+    location.reload();
+  });
+  sysSection.appendChild(btn4);
+
+  const btn5 = document.createElement('button');
+  btn5.className = 'tester-button';
+  btn5.textContent = 'Voltar para Home';
+  btn5.addEventListener('click', () => {
+    const app = document.getElementById('app-tester');
+    app.classList.remove('open');
+    showScreen('screen-home');
+    document.querySelector('.status-bar').style.display = 'none';
+  });
+  sysSection.appendChild(btn5);
+
+  list.appendChild(sysSection);
+
+  // Controles
+  const ctrlSection = document.createElement('div');
+  ctrlSection.className = 'tester-section';
+  ctrlSection.innerHTML = '<div class="tester-section-title">Controles</div>';
+
+  const btn6 = document.createElement('button');
+  btn6.className = 'tester-button';
+  btn6.textContent = 'Ativar modo avião';
+  btn6.addEventListener('click', () => {
+    controlState.airplane = true;
+    controlState.wifi = false;
+    controlState.data = false;
+    updateStatusWifi();
+    updateStatusData();
+    buildControlGrid();
+    showToast('Modo avião ativado');
+  });
+  ctrlSection.appendChild(btn6);
+
+  const btn7 = document.createElement('button');
+  btn7.className = 'tester-button';
+  btn7.textContent = 'Desativar modo avião';
+  btn7.addEventListener('click', () => {
+    controlState.airplane = false;
+    updateStatusWifi();
+    updateStatusData();
+    buildControlGrid();
+    showToast('Modo avião desativado');
+  });
+  ctrlSection.appendChild(btn7);
+
+  const btn8 = document.createElement('button');
+  btn8.className = 'tester-button';
+  btn8.textContent = 'Ativar economia de bateria';
+  btn8.addEventListener('click', () => {
+    controlState.battery_saver = true;
+    updateStatusBatterySaver();
+    buildControlGrid();
+    showToast('Economia de bateria ativada');
+  });
+  ctrlSection.appendChild(btn8);
+
+  list.appendChild(ctrlSection);
+}
+
+function addNotification(app, message) {
+  const now = new Date();
+  const time = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+
+  notifications.push({app, message, time});
+  updateNotificationsList();
+  updateNotificationIcons();
+}
+
+function updateNotificationsList() {
+  const list = document.getElementById('notifications-list');
+  if (notifications.length === 0) {
+    list.innerHTML = '<div class="notifications-empty">Nenhuma notificação</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  notifications.forEach(notif => {
+    const item = document.createElement('div');
+    item.className = 'notification-item';
+    item.innerHTML = `
+      <div class="notification-app">${notif.app}</div>
+      <div class="notification-title">${notif.message}</div>
+      <div class="notification-time">${notif.time}</div>
+    `;
+    list.appendChild(item);
+  });
+}
+
+function updateNotificationIcons() {
+  const container = document.getElementById('status-notifications');
+  container.innerHTML = '';
+
+  const apps = [...new Set(notifications.map(n => n.app))].slice(0, 3);
+  apps.forEach(app => {
+    const icon = document.createElement('div');
+    icon.className = 'status-notif-icon';
+    icon.textContent = app.charAt(0);
+    container.appendChild(icon);
+  });
+}
+
+/* =====================================================================
+   CONFIGURAÇÕES
+   ===================================================================== */
+
+function bindSettingsRows() {
+  const settingsApp = document.getElementById('app-settings');
+
+  settingsApp.addEventListener('click', (e) => {
+    const row = e.target.closest('.settings-row');
+    if (!row) return;
+    const subKey = row.dataset.sub;
+
+    if (subKey === 'basic') {
+      const parentSub = row.closest('.settings-sub');
+      const basicBackBtn = document.querySelector('#settings-sub-basic .settings-back-btn');
+      basicBackBtn.dataset.backTo = parentSub ? parentSub.id.replace('settings-sub-', '') : 'settings-root';
+      document.getElementById('settings-sub-basic-glyph').textContent = row.dataset.glyph || '';
+      document.getElementById('settings-sub-basic-title').textContent = row.dataset.label || '';
+      openSettingsSub('basic');
+    } else if (subKey === 'personalization') {
+      openSettingsSub('personalization');
+    } else if (subKey === 'wallpaper') {
+      openSettingsSub('wallpaper');
+      refreshWallpaperPreview();
+    }
+  });
+
+  settingsApp.addEventListener('click', (e) => {
+    const backBtn = e.target.closest('.settings-back-btn');
+    if (!backBtn) return;
+    const backTo = backBtn.dataset.backTo;
+    if (backTo === 'settings-root') {
+      closeAllSettingsSub();
+    } else {
+      openSettingsSub(backTo);
+    }
+  });
+}
+
+function closeAllSettingsSub() {
+  document.querySelectorAll('.settings-sub').forEach(sub => sub.classList.remove('open'));
+}
+
+function openSettingsSub(subId) {
+  closeAllSettingsSub();
+  document.getElementById('settings-sub-' + subId).classList.add('open');
+}
+
+/* =====================================================================
+   WALLPAPER
+   ===================================================================== */
+
+let pendingWallpaperDataUrl = null;
+
+function bindWallpaperUI() {
+  const fileInput = document.getElementById('wallpaper-file-input');
+  const urlInput = document.getElementById('wallpaper-url-input');
+  const applyUrlBtn = document.getElementById('wallpaper-apply-url-btn');
+  const overlay = document.getElementById('wallpaper-target-overlay');
+
+  applyUrlBtn.addEventListener('click', () => {
+    const url = urlInput.value.trim();
+    if (!url) {
+      showToast('Cole uma URL de imagem');
+      return;
+    }
+    fetch(url, {method:'HEAD'})
+      .then(r => {
+        if (!r.ok) throw new Error('URL não acessível');
+        if (!r.headers.get('content-type')?.includes('image')) throw new Error('Não é uma imagem');
+        pendingWallpaperDataUrl = url;
+        overlay.style.display = 'flex';
+      })
+      .catch(err => showToast('Erro: ' + err.message));
+  });
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      pendingWallpaperDataUrl = reader.result;
+      overlay.style.display = 'flex';
+    };
+    reader.readAsDataURL(file);
+    fileInput.value = '';
+  });
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.style.display = 'none';
+      return;
+    }
+    const option = e.target.closest('.wallpaper-target-option');
+    if (!option || !pendingWallpaperDataUrl) return;
+
+    const target = option.dataset.target;
+    applyWallpaperToTarget(pendingWallpaperDataUrl, target);
+    overlay.style.display = 'none';
+    pendingWallpaperDataUrl = null;
+  });
+}
+
+function refreshWallpaperPreview() {
+  const preview = document.getElementById('wallpaper-preview');
+  const empty = document.getElementById('wallpaper-preview-empty');
+  const homeUrl = localStorage.getItem(WALLPAPER_STORAGE_KEY_HOME);
+  const lockUrl = localStorage.getItem(WALLPAPER_STORAGE_KEY_LOCK);
+  const anyWallpaper = homeUrl || lockUrl;
+
+  if (anyWallpaper) {
+    empty.style.display = 'none';
+    preview.style.backgroundImage = `url("${homeUrl || lockUrl}")`;
+    preview.style.backgroundSize = 'cover';
+    preview.style.backgroundPosition = 'center';
+  } else {
+    empty.style.display = '';
+    preview.style.backgroundImage = '';
+  }
+}
+
+function applyWallpaperToTarget(dataUrl, target) {
+  try {
+    if (target === 'home' || target === 'both') {
+      localStorage.setItem(WALLPAPER_STORAGE_KEY_HOME, dataUrl);
+      document.getElementById('screen-home').style.backgroundImage = `url("${dataUrl}")`;
+    }
+    if (target === 'lock' || target === 'both') {
+      localStorage.setItem(WALLPAPER_STORAGE_KEY_LOCK, dataUrl);
+      document.getElementById('screen-lock').style.backgroundImage = `url("${dataUrl}")`;
+    }
+  } catch (err) {
+    showToast('Não foi possível salvar o wallpaper.');
+    return;
+  }
+  refreshWallpaperPreview();
+  showToast('Wallpaper aplicado!');
+}
+
+/* =====================================================================
+   INICIALIZAÇÃO
+   ===================================================================== */
+
+function goToLoading() { showScreen('screen-loading'); }
+function goToLock()    { showScreen('screen-lock');    startLock(); }
+function goToHome()    { showScreen('screen-home');    startHome(); bindPinPad(); bindSettingsRows(); bindWallpaperUI(); bindStatusBarGestures(); buildControlGrid(); buildTesterUI(); }
+
+</script>
+
+</body>
+</html>
